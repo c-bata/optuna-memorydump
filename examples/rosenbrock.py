@@ -10,14 +10,15 @@ def objective(trial):
 
 
 if __name__ == "__main__":
-    logging.getLogger('optuna.study').setLevel(logging.ERROR)
+    logging.getLogger("optuna.study").setLevel(logging.ERROR)
     study = optuna.create_study(
-        study_name="dumped",
-        sampler=optuna.samplers.CmaEsSampler())
-    dump_storage = optuna.storages.RDBStorage('sqlite:///db-dump.sqlite3')
-    study.optimize(
-        objective, timeout=60, n_jobs=8, gc_after_trial=False,
-        callbacks=[Callback(interval=100, storage=dump_storage)]
+        study_name="dumped", sampler=optuna.samplers.CmaEsSampler(),
     )
-    print("Best value: {} (params: {})\n".format(
-        study.best_value, study.best_params))
+    study.optimize(
+        objective,
+        n_trials=600 + 1,
+        n_jobs=3,
+        gc_after_trial=False,
+        callbacks=[Callback(interval=100, storage="sqlite:///db.sqlite3")],
+    )
+    print("Best value: {} (params: {})\n".format(study.best_value, study.best_params))

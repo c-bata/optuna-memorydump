@@ -1,8 +1,11 @@
 import logging
-import time
-from typing import Dict, Optional
 import optuna
+import time
 import threading
+
+from typing import Dict
+from typing import Optional
+from typing import Union
 
 
 _logger = logging.getLogger("optuna.memorydump")
@@ -107,13 +110,15 @@ class Callback:
     def __init__(
         self,
         interval: int,
-        storage: optuna.storages.BaseStorage,
+        storage: Union[str, optuna.storages.BaseStorage],
         sync_study_attr_always: bool = False,
     ) -> None:
         self._interval = interval
-        self._storage = storage
+        if isinstance(storage, str):
+            self._storage = optuna.storages.RDBStorage(storage)
+        else:
+            self._storage = storage
         self._sync_study_always = sync_study_attr_always
-
         self._first_call = True
         self._to_study: Optional[optuna.Study] = None
 
