@@ -132,32 +132,38 @@ class Callback:
             )
             return
 
-        _logger.info(
-            f"memorydump is triggered at trial {trial.number}"
-            f" (thread={threading.get_ident()})."
-        )
-
-        if self._first_call:
-            to_study = optuna.create_study(
-                storage=self._storage, study_name=study.study_name, load_if_exists=True
+        try:
+            _logger.info(
+                f"memorydump is triggered at trial {trial.number}"
+                f" (thread={threading.get_ident()})."
             )
-            to_study._storage.set_study_direction(to_study.study_id, study.direction)
-            self._to_study = to_study
-            self._first_call = False
 
-        assert self._to_study is not None
+            if self._first_call:
+                to_study = optuna.create_study(
+                    storage=self._storage,
+                    study_name=study.study_name,
+                    load_if_exists=True,
+                )
+                to_study._storage.set_study_direction(
+                    to_study.study_id, study.direction
+                )
+                self._to_study = to_study
+                self._first_call = False
 
-        if self._sync_study_always or self._first_call:
-            _sync_study(from_study=study, to_study=self._to_study)
+            assert self._to_study is not None
 
-        start = time.time()
-        _dump(study, self._storage, self._to_study.study_id)
-        elapsed = time.time() - start
+            if self._sync_study_always or self._first_call:
+                _sync_study(from_study=study, to_study=self._to_study)
 
-        if self._first_call:
-            self._first_call = False
+            start = time.time()
+            _dump(study, self._storage, self._to_study.study_id)
+            elapsed = time.time() - start
 
-        _lock.release()
+            if self._first_call:
+                self._first_call = False
+        finally:
+            _lock.release()
+
         _logger.info(
             f"memorydump of trial {trial.number} is finished"
             f" in {elapsed:.3f}s (thread={threading.get_ident()})."
