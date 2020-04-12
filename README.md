@@ -2,6 +2,14 @@
 
 Dump Optuna in-memory storage to RDB storage. This tool ensures idempotence and thread-safe.
 
+## Installation
+
+```console
+$ pip install git+https://github.com/c-bata/optuna-memorydump.git
+```
+
+## Usage
+
 ```python
 import optuna
 from optuna_memorydump import MemoryDumpCallback
