@@ -34,7 +34,6 @@ def _append_trial(
     base_trial: optuna.structs.FrozenTrial,
 ) -> None:
     if base_trial.state.is_finished():
-        # TODO(c-bata): optimize create_new_trial.
         trial_id = storage.create_new_trial(study_id, template_trial=base_trial)
     else:
         trial_id = storage.create_new_trial(study_id)
@@ -82,27 +81,6 @@ def _dump(
     dumped_trial_map: Dict[int, optuna.structs.FrozenTrial] = {
         t.number: t for t in storage.get_all_trials(study_id)
     }
-
-    for trial in study._storage.get_all_trials(study.study_id, deepcopy=False):
-        dt = dumped_trial_map.get(trial.number, None)
-        if dt is None:
-            _append_trial(storage, study_id, trial)
-            continue
-
-        if dt.state.is_finished():
-            continue
-
-        _sync_trial(storage, trial, dt)
-
-
-def _dump_from_in_memory(
-    study: optuna.Study, storage: optuna.storages.BaseStorage, study_id: int,
-) -> None:
-    assert isinstance(study._storage, optuna.storages.InMemoryStorage)
-
-    dumped_trial_map: Dict[int, optuna.structs.FrozenTrial] = {
-        t.number: t for t in storage.get_all_trials(study_id)
-    }
     for i in range(study._storage.get_n_trials(study.study_id)):
         trial_id = i
         trial_number = i
@@ -143,6 +121,10 @@ class Callback:
         if trial.number == 0 or trial.number % self._interval != 0:
             return
 
+        if not isinstance(study._storage, optuna.storages.InMemoryStorage):
+            _logger.error("memorydump only supports InMemoryStorage.")
+            return
+
         if not _lock.acquire(blocking=False):
             _logger.info(
                 f"memorydump is skipped at trial {trial.number}"
@@ -169,10 +151,7 @@ class Callback:
             _sync_study(from_study=study, to_study=self._to_study)
 
         start = time.time()
-        if isinstance(study._storage, optuna.storages.InMemoryStorage):
-            _dump_from_in_memory(study, self._storage, self._to_study.study_id)
-        else:
-            _dump(study, self._storage, self._to_study.study_id)
+        _dump(study, self._storage, self._to_study.study_id)
         elapsed = time.time() - start
 
         if self._first_call:
