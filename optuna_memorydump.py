@@ -1,3 +1,5 @@
+import logging
+import time
 from typing import Dict
 
 import optuna
@@ -5,6 +7,7 @@ import threading
 
 
 _lock = threading.Lock()
+_logger = logging.getLogger('optuna.memory_dump')
 
 
 def _append_trial(
@@ -101,3 +104,31 @@ def dump(study: optuna.Study, storage: optuna.storages.BaseStorage) -> None:
                 continue
 
             _sync_trial(dumped_study, trial, dt)
+
+
+class Callback:
+    def __init__(
+            self,
+            interval: int,
+            storage: optuna.storages.BaseStorage,
+    ) -> None:
+        self.interval = interval
+        self.storage = storage
+
+    def __call__(
+            self,
+            study: optuna.Study,
+            trial: optuna.structs.FrozenTrial,
+    ) -> None:
+        if trial.number == 0 or trial.number % self.interval != 0:
+            return
+
+        _logger.info(f'memorydump is triggered at trial {trial.number}'
+                     f' (thread={threading.get_ident()}).')
+
+        start = time.time()
+        dump(study, self.storage)
+        elapsed = time.time() - start
+
+        _logger.info(f'memorydump of trial {trial.number} is finished'
+                     f' in {elapsed:.3f} (thread={threading.get_ident()}).')
