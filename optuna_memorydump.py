@@ -83,7 +83,7 @@ def _dump(
         t.number: t for t in storage.get_all_trials(study_id)
     }
 
-    for trial in study.trials:
+    for trial in study._storage.get_all_trials(study.study_id, deepcopy=False):
         dt = dumped_trial_map.get(trial.number, None)
         if dt is None:
             _append_trial(storage, study_id, trial)
@@ -93,6 +93,32 @@ def _dump(
             continue
 
         _sync_trial(storage, trial, dt)
+
+
+def _dump_from_in_memory(
+    study: optuna.Study, storage: optuna.storages.BaseStorage, study_id: int,
+) -> None:
+    assert isinstance(study._storage, optuna.storages.InMemoryStorage)
+
+    dumped_trial_map: Dict[int, optuna.structs.FrozenTrial] = {
+        t.number: t for t in storage.get_all_trials(study_id)
+    }
+    for i in range(study._storage.get_n_trials(study.study_id)):
+        trial_id = i
+        trial_number = i
+
+        to_trial = dumped_trial_map.get(trial_number, None)
+        if to_trial is None:
+            with study._storage._lock:
+                from_trial = study._storage.trials[trial_id]
+                _append_trial(storage, study_id, from_trial)
+            continue
+        if to_trial.state.is_finished():
+            continue
+
+        with study._storage._lock:
+            from_trial = study._storage.trials[trial_id]
+            _sync_trial(storage, from_trial, to_trial)
 
 
 class Callback:
@@ -139,7 +165,10 @@ class Callback:
             _sync_study(from_study=study, to_study=self._to_study)
 
         start = time.time()
-        _dump(study, self._storage, self._to_study.study_id)
+        if isinstance(study._storage, optuna.storages.InMemoryStorage):
+            _dump_from_in_memory(study, self._storage, self._to_study.study_id)
+        else:
+            _dump(study, self._storage, self._to_study.study_id)
         elapsed = time.time() - start
 
         if self._first_call:
