@@ -1,6 +1,10 @@
 from typing import Dict
 
 import optuna
+import threading
+
+
+_lock = threading.Lock()
 
 
 def _append_trial(
@@ -78,21 +82,22 @@ def _sync_trial(
 
 
 def dump(study: optuna.Study, storage: optuna.storages.BaseStorage) -> None:
-    dumped_study: optuna.Study = optuna.create_study(
-        storage=storage, study_name=study.study_name, load_if_exists=True)
+    with _lock:
+        dumped_study: optuna.Study = optuna.create_study(
+            storage=storage, study_name=study.study_name, load_if_exists=True)
 
-    _sync_study(study, dumped_study)
+        _sync_study(study, dumped_study)
 
-    dumped_trial_map: Dict[int, optuna.structs.FrozenTrial] = {
-        t.number: t for t in dumped_study.trials}
+        dumped_trial_map: Dict[int, optuna.structs.FrozenTrial] = {
+            t.number: t for t in dumped_study.trials}
 
-    for trial in study.get_trials(deepcopy=False):
-        dt = dumped_trial_map.get(trial.number, None)
-        if dt is None:
-            _append_trial(dumped_study, trial)
-            continue
+        for trial in study.get_trials(deepcopy=False):
+            dt = dumped_trial_map.get(trial.number, None)
+            if dt is None:
+                _append_trial(dumped_study, trial)
+                continue
 
-        if dt.state.is_finished():
-            continue
+            if dt.state.is_finished():
+                continue
 
-        _sync_trial(dumped_study, trial, dt)
+            _sync_trial(dumped_study, trial, dt)
