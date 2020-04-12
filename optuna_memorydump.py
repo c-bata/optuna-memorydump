@@ -118,7 +118,11 @@ def _dump_from_in_memory(
 
         with study._storage._lock:
             from_trial = study._storage.trials[trial_id]
-            _sync_trial(storage, from_trial, to_trial)
+            if from_trial.state.is_finished():
+                return
+
+        # No locking because finished trials aren't updated.
+        _sync_trial(storage, from_trial, to_trial)
 
 
 class Callback:
