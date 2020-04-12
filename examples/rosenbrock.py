@@ -1,6 +1,6 @@
 import logging
 import optuna
-from optuna_memorydump import Callback
+from optuna_memorydump import MemoryDumpCallback
 
 
 def objective(trial):
@@ -19,6 +19,6 @@ if __name__ == "__main__":
         n_trials=600 + 1,
         n_jobs=3,
         gc_after_trial=False,
-        callbacks=[Callback(interval=100, storage="sqlite:///db.sqlite3")],
+        callbacks=[MemoryDumpCallback("sqlite:///db.sqlite3", interval=100)],
     )
     print("Best value: {} (params: {})\n".format(study.best_value, study.best_params))

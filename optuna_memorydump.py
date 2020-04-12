@@ -106,18 +106,18 @@ def _dump(
         _sync_trial(storage, from_trial, to_trial)
 
 
-class Callback:
+class MemoryDumpCallback:
     def __init__(
         self,
-        interval: int,
         storage: Union[str, optuna.storages.BaseStorage],
+        interval: int = 500,
         sync_study_attr_always: bool = False,
     ) -> None:
-        self._interval = interval
         if isinstance(storage, str):
             self._storage = optuna.storages.RDBStorage(storage)
         else:
             self._storage = storage
+        self._interval = interval
         self._sync_study_always = sync_study_attr_always
         self._first_call = True
         self._to_study: Optional[optuna.Study] = None
