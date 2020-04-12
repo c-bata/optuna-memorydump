@@ -16,7 +16,7 @@ if __name__ == "__main__":
         sampler=optuna.samplers.CmaEsSampler())
     dump_storage = optuna.storages.RDBStorage('sqlite:///db-dump.sqlite3')
     study.optimize(
-        objective, timeout=30, n_jobs=8, gc_after_trial=False,
+        objective, timeout=60, n_jobs=8, gc_after_trial=False,
         callbacks=[Callback(interval=100, storage=dump_storage)]
     )
     print("Best value: {} (params: {})\n".format(
