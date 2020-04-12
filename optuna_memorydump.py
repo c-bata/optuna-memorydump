@@ -33,7 +33,11 @@ def _append_trial(
     study_id: int,
     base_trial: optuna.structs.FrozenTrial,
 ) -> None:
-    trial_id = storage.create_new_trial(study_id, template_trial=base_trial)
+    if base_trial.state.is_finished():
+        # TODO(c-bata): optimize create_new_trial.
+        trial_id = storage.create_new_trial(study_id, template_trial=base_trial)
+    else:
+        trial_id = storage.create_new_trial(study_id)
 
     number = storage.get_trial_number_from_id(trial_id)
     assert number == base_trial.number, "integrity error"
@@ -44,60 +48,32 @@ def _sync_trial(
     from_trial: optuna.structs.FrozenTrial,
     to_trial: optuna.structs.FrozenTrial,
 ) -> None:
-    if from_trial.system_attrs != to_trial.system_attrs:
-        for k in from_trial.system_attrs:
-            if (
-                k in to_trial.system_attrs
-                and from_trial.system_attrs[k] == to_trial.system_attrs[k]
-            ):
-                continue
-            storage.set_trial_system_attr(
-                to_trial._trial_id, k, from_trial.system_attrs[k]
-            )
+    if not from_trial.state.is_finished():
+        return
 
-    if from_trial.user_attrs != to_trial.user_attrs:
-        for k in from_trial.user_attrs:
-            if (
-                k in to_trial.user_attrs
-                and from_trial.user_attrs[k] == to_trial.user_attrs[k]
-            ):
-                continue
-            storage.set_trial_user_attr(to_trial._trial_id, k, from_trial.user_attrs[k])
+    for k in from_trial.system_attrs:
+        storage.set_trial_system_attr(to_trial._trial_id, k, from_trial.system_attrs[k])
 
-    if from_trial.intermediate_values != to_trial.intermediate_values:
-        for step in from_trial.intermediate_values:
-            if step in to_trial.intermediate_values:
-                continue
-            assert storage.set_trial_intermediate_value(
-                to_trial._trial_id, step, from_trial.intermediate_values[step]
-            )
+    for k in from_trial.user_attrs:
+        storage.set_trial_user_attr(to_trial._trial_id, k, from_trial.user_attrs[k])
 
-    if (
-        from_trial.distributions != to_trial.distributions
-        or from_trial.params != to_trial.params
-    ):
-        names = set(from_trial.distributions.keys())
-        names.intersection_update(set(from_trial.distributions.keys()))
-        for name in names:
-            from_distribution = from_trial.distributions[name]
-            from_external = from_trial.params[name]
-            if (
-                (name in to_trial.distributions)
-                and (name in to_trial.params)
-                and (from_distribution == to_trial.distributions[name])
-                and (from_external == to_trial.params[name])
-            ):
-                continue
-            from_internal = from_distribution.to_internal_repr(from_external)
-            assert storage.set_trial_param(
-                to_trial._trial_id, name, from_internal, from_distribution
-            )
+    for step in from_trial.intermediate_values:
+        storage.set_trial_intermediate_value(
+            to_trial._trial_id, step, from_trial.intermediate_values[step]
+        )
 
-    if from_trial.value != to_trial.value:
-        storage.set_trial_value(to_trial._trial_id, from_trial.value)
+    names = set(from_trial.distributions.keys())
+    names.intersection_update(set(from_trial.distributions.keys()))
+    for name in names:
+        from_distribution = from_trial.distributions[name]
+        from_external = from_trial.params[name]
+        from_internal = from_distribution.to_internal_repr(from_external)
+        assert storage.set_trial_param(
+            to_trial._trial_id, name, from_internal, from_distribution
+        )
 
-    if from_trial.state != to_trial.state:
-        storage.set_trial_state(to_trial._trial_id, from_trial.state)
+    storage.set_trial_value(to_trial._trial_id, from_trial.value)
+    storage.set_trial_state(to_trial._trial_id, from_trial.state)
 
 
 def _dump(
