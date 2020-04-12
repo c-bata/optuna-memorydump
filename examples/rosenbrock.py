@@ -1,3 +1,4 @@
+import logging
 import optuna
 from optuna_memorydump import Callback
 
@@ -9,6 +10,7 @@ def objective(trial):
 
 
 if __name__ == "__main__":
+    logging.getLogger('optuna.study').setLevel(logging.ERROR)
     study = optuna.create_study(
         study_name="dumped",
         sampler=optuna.samplers.CmaEsSampler())

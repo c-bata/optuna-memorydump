@@ -28,15 +28,17 @@ def _sync_study(
         to_study: optuna.Study,
 ) -> None:
     if from_study.system_attrs != to_study.system_attrs:
-        for k, v in from_study.system_attrs:
-            if k in to_study.system_attrs and v == to_study.system_attrs[k]:
+        for k in from_study.system_attrs:
+            if k in to_study.system_attrs and \
+                    from_study.system_attrs[k] == to_study.system_attrs[k]:
                 continue
-            from_study.set_system_attr(k, v)
+            from_study.set_system_attr(k, from_study.system_attrs[k])
     if from_study.user_attrs != to_study.user_attrs:
-        for k, v in from_study.user_attrs:
-            if k in to_study.user_attrs and v == to_study.user_attrs[k]:
+        for k in from_study.user_attrs:
+            if k in to_study.user_attrs and \
+                    from_study.user_attrs[k] == to_study.user_attrs[k]:
                 continue
-            from_study.set_user_attr(k, v)
+            from_study.set_user_attr(k, from_study.user_attrs[k])
 
 
 def _sync_trial(
@@ -45,22 +47,25 @@ def _sync_trial(
         to_trial: optuna.structs.FrozenTrial,
 ) -> None:
     if from_trial.system_attrs != to_trial.system_attrs:
-        for k, v in from_trial.system_attrs:
-            if k in to_trial.system_attrs and v == to_trial.system_attrs[k]:
+        for k in from_trial.system_attrs:
+            if k in to_trial.system_attrs and \
+                    from_trial.system_attrs[k] == to_trial.system_attrs[k]:
                 continue
-            to_study._storage.set_trial_system_attr(to_trial._trial_id, k, v)
+            to_study._storage.set_trial_system_attr(to_trial._trial_id, k, from_trial.system_attrs[k])
 
     if from_trial.user_attrs != to_trial.user_attrs:
-        for k, v in from_trial.user_attrs:
-            if k in to_trial.user_attrs and v == to_trial.user_attrs[k]:
+        for k in from_trial.user_attrs:
+            if k in to_trial.user_attrs and \
+                    from_trial.user_attrs[k] == to_trial.user_attrs[k]:
                 continue
-            to_study._storage.set_trial_user_attr(to_trial._trial_id, k, v)
+            to_study._storage.set_trial_user_attr(to_trial._trial_id, k, from_trial.user_attrs[k])
 
     if from_trial.intermediate_values != to_trial.intermediate_values:
-        for step, v in from_trial.intermediate_values:
+        for step in from_trial.intermediate_values:
             if step in to_trial.intermediate_values:
                 continue
-            assert to_study._storage.set_trial_intermediate_value(to_trial._trial_id, step, v)
+            assert to_study._storage.set_trial_intermediate_value(
+                to_trial._trial_id, step, from_trial.intermediate_values[step])
 
     if from_trial.distributions != to_trial.distributions or from_trial.params != to_trial.params:
         names = set(from_trial.distributions.keys())
@@ -94,7 +99,7 @@ def dump(study: optuna.Study, storage: optuna.storages.BaseStorage) -> None:
         dumped_trial_map: Dict[int, optuna.structs.FrozenTrial] = {
             t.number: t for t in dumped_study.trials}
 
-        for trial in study.get_trials(deepcopy=False):
+        for trial in study.trials:
             dt = dumped_trial_map.get(trial.number, None)
             if dt is None:
                 _append_trial(dumped_study, trial)
@@ -131,4 +136,4 @@ class Callback:
         elapsed = time.time() - start
 
         _logger.info(f'memorydump of trial {trial.number} is finished'
-                     f' in {elapsed:.3f} (thread={threading.get_ident()}).')
+                     f' in {elapsed:.3f}s (thread={threading.get_ident()}).')
